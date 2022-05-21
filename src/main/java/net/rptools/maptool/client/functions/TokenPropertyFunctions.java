@@ -1018,7 +1018,7 @@ public class TokenPropertyFunctions extends AbstractFunction {
    * @param token The token to get the size of.
    * @return the size of the token.
    */
-  private String getSize(Token token) {
+  public static String getSize(Token token) {
     Grid grid = token.getZoneRenderer().getZone().getGrid();
     if (token.isSnapToScale()) {
       for (TokenFootprint footprint : grid.getFootprints()) {
@@ -1038,7 +1038,7 @@ public class TokenPropertyFunctions extends AbstractFunction {
    * @return The new size of the token.
    * @throws ParserException if the size specified is an invalid size.
    */
-  private String setSize(Token token, String size) throws ParserException {
+  public static String setSize(Token token, String size) throws ParserException {
     if (size.equalsIgnoreCase("native") || size.equalsIgnoreCase("free")) {
       MapTool.serverCommand().updateTokenProperty(token, Token.Update.setSnapToScale, false);
       return getSize(token);
@@ -1060,7 +1060,7 @@ public class TokenPropertyFunctions extends AbstractFunction {
    *
    * @param token The token to reset the size of.
    */
-  private void resetSize(Token token) {
+  public static void resetSize(Token token) {
     Grid grid = token.getZoneRenderer().getZone().getGrid();
     TokenFootprint footprint = grid.getDefaultFootprint();
     MapTool.serverCommand().updateTokenProperty(token, Token.Update.setFootprint, grid, footprint);
