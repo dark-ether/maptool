@@ -134,7 +134,7 @@ public class TokenLightFunctions extends AbstractFunction {
    * @return 0 if the light was not found, otherwise 1;
    * @throws ParserException if the light type can't be found.
    */
-  private static BigDecimal setLight(Token token, String category, String name, BigDecimal val)
+  public static BigDecimal setLight(Token token, String category, String name, BigDecimal val)
       throws ParserException {
     boolean found = false;
     Map<String, Map<GUID, LightSource>> lightSourcesMap =

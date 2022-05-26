@@ -26,19 +26,19 @@ public class JSAPIChat implements MapToolJSAPIInterface {
   }
 
   @HostAccess.Export
-  public void broadcast(String message) {
-    MapTool.addGlobalMessage(message);
+  public void broadcast(Object message) {
+    MapTool.addGlobalMessage(message.toString());
   }
 
   @HostAccess.Export
-  public void broadcastTo(List<String> who, String message) {
-    MapTool.addGlobalMessage(message, who);
+  public void broadcastTo(List<String> who, Object message) {
+    MapTool.addGlobalMessage(message.toString(), who);
   }
 
   @HostAccess.Export
-  public void broadcastToGM(String message) {
+  public void broadcastToGM(Object message) {
     List<String> who = new ArrayList<>();
     who.add("gm");
-    MapTool.addGlobalMessage(message, who);
+    MapTool.addGlobalMessage(message.toString(), who);
   }
 }
