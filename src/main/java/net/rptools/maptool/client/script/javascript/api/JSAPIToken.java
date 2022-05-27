@@ -16,7 +16,9 @@ package net.rptools.maptool.client.script.javascript.api;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonPrimitive;
+import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.geom.Area;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,18 +31,22 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import net.rptools.maptool.client.AppUtil;
 import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.functions.StringFunctions;
 import net.rptools.maptool.client.functions.TokenLightFunctions;
 import net.rptools.maptool.client.functions.TokenPropertyFunctions;
+import net.rptools.maptool.client.functions.TokenSightFunctions.TokenLocations;
 import net.rptools.maptool.client.script.javascript.*;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
 import net.rptools.maptool.language.I18N;
 import net.rptools.maptool.model.GUID;
+import net.rptools.maptool.model.Grid;
 import net.rptools.maptool.model.LightSource;
 import net.rptools.maptool.model.Token;
 import net.rptools.maptool.model.TokenProperty;
 import net.rptools.maptool.model.Zone;
+import net.rptools.maptool.model.ZonePoint;
 import net.rptools.maptool.model.library.LibraryManager;
 import net.rptools.parser.ParserException;
 import org.graalvm.polyglot.HostAccess;
@@ -90,27 +96,6 @@ public class JSAPIToken implements MapToolJSAPIInterface {
   }
 
   @HostAccess.Export
-  public boolean hasSight() throws ParserException {
-    boolean trusted = JSScriptEngine.inTrustedContext();
-    String playerId = MapTool.getPlayer().getName();
-    if (trusted || token.isOwner(playerId)) {
-      return token.getHasSight();
-    }
-    throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "hasSight"));
-  }
-
-  @HostAccess.Export
-  public void setSight(boolean sight) throws ParserException {
-    boolean trusted = JSScriptEngine.inTrustedContext();
-    String playerId = MapTool.getPlayer().getName();
-    if (trusted || token.isOwner(playerId)) {
-      MapTool.serverCommand().updateTokenProperty(token, Token.Update.setHasSight, sight);
-    } else {
-      throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "setSight"));
-    }
-  }
-
-  @HostAccess.Export
   public String toString() {
     boolean trusted = JSScriptEngine.inTrustedContext();
     String playerId = MapTool.getPlayer().getName();
@@ -128,7 +113,114 @@ public class JSAPIToken implements MapToolJSAPIInterface {
     if (trusted || token.isOwner(playerId)) {
       return "" + token.getId();
     }
-    throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "setSight"));
+    throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "getId"));
+  }
+
+  @HostAccess.Export
+  public boolean hasSight() throws ParserException {
+    boolean trusted = JSScriptEngine.inTrustedContext();
+    String playerId = MapTool.getPlayer().getName();
+    if (trusted || token.isOwner(playerId)) {
+      return token.getHasSight();
+    }
+    throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "hasSight"));
+  }
+
+  @HostAccess.Export
+  public void setHasSight(boolean hasSight) throws ParserException {
+    boolean trusted = JSScriptEngine.inTrustedContext();
+    String playerId = MapTool.getPlayer().getName();
+    if (trusted || token.isOwner(playerId)) {
+      MapTool.serverCommand().updateTokenProperty(token, Token.Update.setHasSight, hasSight);
+    } else {
+      throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "setHasSight"));
+    }
+  }
+
+  @HostAccess.Export
+  public String getSightType() throws ParserException {
+    boolean trusted = JSScriptEngine.inTrustedContext();
+    String playerId = MapTool.getPlayer().getName();
+    if (trusted || token.isOwner(playerId)) {
+      return token.getSightType();
+    }
+    throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "getSightType"));
+  }
+
+  @HostAccess.Export
+  public void setSightType(String sightType) throws ParserException {
+    boolean trusted = JSScriptEngine.inTrustedContext();
+    String playerId = MapTool.getPlayer().getName();
+    if (trusted || token.isOwner(playerId)) {
+      MapTool.serverCommand().updateTokenProperty(token, Token.Update.setSightType, sightType);
+    } else {
+      throw new ParserException(
+          I18N.getText("macro.function.initiative.gmOrOwner", "setSightType"));
+    }
+  }
+
+  @HostAccess.Export
+  public List<String> canSeeToken(Token target) throws ParserException {
+    boolean trusted = JSScriptEngine.inTrustedContext();
+    String playerId = MapTool.getPlayer().getName();
+    if (trusted || token.isOwner(playerId)) {
+      List<String> canSee = new ArrayList<>();
+
+      if (!token.getHasSight()
+          || !target.isVisible()
+          || (target.isVisibleOnlyToOwner() && !target.isOwner(playerId))) {
+        return canSee;
+      }
+
+      ZoneRenderer zoneRenderer = token.getZoneRenderer();
+      Area tokensVisibleArea = zoneRenderer.getZoneView().getVisibleArea(token);
+      if (tokensVisibleArea == null) {
+        return canSee;
+      }
+
+      Zone zone = zoneRenderer.getZone();
+      Grid grid = zone.getGrid();
+
+      Rectangle bounds =
+          target
+              .getFootprint(grid)
+              .getBounds(grid, grid.convert(new ZonePoint(target.getX(), target.getY())));
+      if (!target.isSnapToGrid()) bounds = target.getBounds(zone);
+
+      int x = (int) bounds.getX();
+      int y = (int) bounds.getY();
+      int w = (int) bounds.getWidth();
+      int h = (int) bounds.getHeight();
+
+      int halfX = x + (w) / 2;
+      int halfY = y + (h) / 2;
+      // TODO: Import TokenLocations? Make a util file, probably
+      if (tokensVisibleArea.intersects(bounds)) {
+        if (tokensVisibleArea.contains(new Point(x, y))) {
+          // TOP_LEFT
+          canSee.add(TokenLocations.TOP_LEFT.toString());
+        }
+        if (tokensVisibleArea.contains(new Point(x, y + h))) {
+          // BOTTOM_LEFT
+          canSee.add(TokenLocations.BOTTOM_LEFT.toString());
+        }
+        if (tokensVisibleArea.contains(new Point(x + w, y))) {
+          // TOP_RIGHT
+          canSee.add(TokenLocations.TOP_RIGHT.toString());
+        }
+        if (tokensVisibleArea.contains(new Point(x + w, y + h))) {
+          // BOTTOM_RIGHT
+          canSee.add(TokenLocations.BOTTOM_RIGHT.toString());
+        }
+        if (tokensVisibleArea.contains(new Point(halfX, halfY))) {
+          // BOTTOM_RIGHT
+          canSee.add(TokenLocations.CENTER.toString());
+        }
+      }
+
+      return canSee;
+    }
+    throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "canSeeToken"));
   }
 
   @HostAccess.Export
@@ -150,7 +242,8 @@ public class JSAPIToken implements MapToolJSAPIInterface {
     if (trusted || token.isOwner(playerId)) {
       return "" + token.getProperty(name);
     } else {
-      throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "getRawProperty"));
+      throw new ParserException(
+          I18N.getText("macro.function.initiative.gmOrOwner", "getRawProperty"));
     }
   }
 
@@ -161,7 +254,8 @@ public class JSAPIToken implements MapToolJSAPIInterface {
     if (trusted || token.isOwner(playerId)) {
       // TODO: Figure out a way to store Objects in properties (only limitation is this
       //  serverCommand business, wasn't there some innovation in serialization?)
-      MapTool.serverCommand().updateTokenProperty(token, Token.Update.setProperty, name, value.toString());
+      MapTool.serverCommand()
+          .updateTokenProperty(token, Token.Update.setProperty, name, value.toString());
     } else {
       throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "setProperty"));
     }
@@ -966,7 +1060,8 @@ public class JSAPIToken implements MapToolJSAPIInterface {
     if (trusted || token.isOwner(playerId)) {
       MapTool.serverCommand().updateTokenProperty(token, Token.Update.setAllStates, val);
     } else {
-      throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "setAllStates"));
+      throw new ParserException(
+          I18N.getText("macro.function.initiative.gmOrOwner", "setAllStates"));
     }
   }
 
@@ -1022,7 +1117,8 @@ public class JSAPIToken implements MapToolJSAPIInterface {
     if (trusted || token.isOwner(playerId)) {
       return TokenLightFunctions.hasLightSource(token, type, name);
     }
-    throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "hasLightSource"));
+    throw new ParserException(
+        I18N.getText("macro.function.initiative.gmOrOwner", "hasLightSource"));
   }
 
   @HostAccess.Export
@@ -1032,8 +1128,7 @@ public class JSAPIToken implements MapToolJSAPIInterface {
     if (trusted || token.isOwner(playerId)) {
       MapTool.serverCommand().updateTokenProperty(token, Token.Update.clearLightSources);
     } else {
-      throw new ParserException(
-          I18N.getText("macro.function.initiative.gmOrOwner", "clearLights"));
+      throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "clearLights"));
     }
   }
 
@@ -1087,5 +1182,14 @@ public class JSAPIToken implements MapToolJSAPIInterface {
     throw new ParserException(I18N.getText("macro.function.initiative.gmOrOwner", "getLights"));
   }
 
-
+//  @HostAccess.Export
+//  public void genericFunction() throws ParserException {
+//    boolean trusted = JSScriptEngine.inTrustedContext();
+//    String playerId = MapTool.getPlayer().getName();
+//    if (trusted || token.isOwner(playerId)) {
+//      return result;
+//    }
+//    throw new ParserException(
+//        I18N.getText("macro.function.initiative.gmOrOwner", "genericFunction"));
+//  }
 }
