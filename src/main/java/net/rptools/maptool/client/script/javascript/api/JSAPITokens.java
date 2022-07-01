@@ -20,6 +20,7 @@ import net.rptools.maptool.client.MapTool;
 import net.rptools.maptool.client.script.javascript.*;
 import net.rptools.maptool.client.ui.zone.ZoneRenderer;
 import net.rptools.maptool.model.Token;
+import net.rptools.parser.ParserException;
 import org.graalvm.polyglot.HostAccess;
 
 public class JSAPITokens implements MapToolJSAPIInterface {
@@ -90,7 +91,7 @@ public class JSAPITokens implements MapToolJSAPIInterface {
   }
 
   @HostAccess.Export
-  public JSAPIToken getTokenByID(String uuid) {
+  public JSAPIToken getTokenByID(String uuid) throws ParserException {
     JSAPIToken token = new JSAPIToken(uuid);
     if (JSScriptEngine.inTrustedContext() || token.isOwner(MapTool.getPlayer().getName())) {
       return token;

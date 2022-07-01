@@ -134,6 +134,8 @@ public class MacroJavaScriptBridge extends AbstractFunction implements DefinesSp
       return JavaScriptToMTScriptType(
           JSScriptEngine.getJSScriptEngine().evalScript(contextName, script));
     } catch (PolyglotException e) {
+      // TODO: Send the actual stack trace to the user? Or perhaps a filtered version?
+      System.out.println(e.getMessage());
       Throwable je = e.asHostException();
       ParserException pe = (ParserException) je;
       if (pe != null) {
